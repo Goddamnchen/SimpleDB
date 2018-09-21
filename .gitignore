@@ -1,0 +1,10 @@
+pkg/
+api.key
+*-handin.tar.gz
+*.DS_Store
+*.iml
+*.xml
+out/
+testreport/
+.classpath
+.project
