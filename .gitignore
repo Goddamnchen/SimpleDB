@@ -8,3 +8,5 @@ out/
 testreport/
 .classpath
 .project
+simpledb_javadoc
+*.pdf
