@@ -13,11 +13,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * For now, this is a stub catalog that must be populated with tables by a
  * user program before it can be used -- eventually, this should be converted
  * to a catalog that reads a catalog table from disk.
- * 
+ * a table of tables
  * @Threadsafe
  */
 public class Catalog {
-
+    /**
+     * Table -- logic object
+     * Encoded on disk as file, which is Dbfile
+     * Dbfile has collections of data pages with records of this table
+     */
     private class Table {
         private DbFile file;
         private String name;
