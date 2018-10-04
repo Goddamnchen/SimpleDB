@@ -2,6 +2,8 @@ package simpledb;
 
 /** Unique identifier for HeapPage objects. */
 public class HeapPageId implements PageId {
+    private int pid;
+    private int tableID;
 
     /**
      * Constructor. Create a page id structure for a specific page of a
@@ -12,12 +14,15 @@ public class HeapPageId implements PageId {
      */
     public HeapPageId(int tableId, int pgNo) {
         // some code goes here
+        this.pid = pgNo;
+        this.tableID = tableId;
     }
 
     /** @return the table associated with this PageId */
     public int getTableId() {
         // some code goes here
-        return 0;
+        int tableId = this.tableID;
+        return tableId;
     }
 
     /**
@@ -26,7 +31,8 @@ public class HeapPageId implements PageId {
      */
     public int pageNumber() {
         // some code goes here
-        return 0;
+        int pgNo = this.pid;
+        return pgNo;
     }
 
     /**
@@ -37,7 +43,10 @@ public class HeapPageId implements PageId {
      */
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        int result = 1;
+        result = 31 * result + tableID;
+        result = 31 * result + pid;
+        return result;
     }
 
     /**
@@ -49,7 +58,15 @@ public class HeapPageId implements PageId {
      */
     public boolean equals(Object o) {
         // some code goes here
-        return false;
+        if (o == null || o.getClass() != this.getClass()) {
+            return false;
+        }
+        HeapPageId headPID = (HeapPageId) o;
+        if (headPID.pid == this.pid && headPID.tableID == this.tableID) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
