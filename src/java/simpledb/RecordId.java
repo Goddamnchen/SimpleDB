@@ -5,10 +5,13 @@ import java.io.Serializable;
 /**
  * A RecordId is a reference to a specific tuple on a specific page of a
  * specific table.
+ * RecordId = (PageId, Location in Page)
  */
 public class RecordId implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    private PageId pid;
+    private int tupleID;
 
     /**
      * Creates a new RecordId referring to the specified PageId and tuple
@@ -21,6 +24,8 @@ public class RecordId implements Serializable {
      */
     public RecordId(PageId pid, int tupleno) {
         // some code goes here
+        this.pid = pid;
+        this.tupleID = tupleno;
     }
 
     /**
@@ -28,7 +33,8 @@ public class RecordId implements Serializable {
      */
     public int tupleno() {
         // some code goes here
-        return 0;
+        int tupleno = tupleID;
+        return tupleno;
     }
 
     /**
@@ -36,7 +42,8 @@ public class RecordId implements Serializable {
      */
     public PageId getPageId() {
         // some code goes here
-        return null;
+        PageId pid = this.pid;
+        return pid;
     }
 
     /**
@@ -48,7 +55,15 @@ public class RecordId implements Serializable {
     @Override
     public boolean equals(Object o) {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        if (o == null || o.getClass() != this.getClass()) {
+            return false;
+        }
+        RecordId r = (RecordId) o;
+        if (r.pid.equals(this.pid) && r.tupleID == this.tupleID) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -60,7 +75,10 @@ public class RecordId implements Serializable {
     @Override
     public int hashCode() {
         // some code goes here
-        throw new UnsupportedOperationException("implement this");
+        int result = 1;
+        result = 31 * result + pid.hashCode();
+        result = 31 * result + tupleID;
+        return result;
 
     }
 
