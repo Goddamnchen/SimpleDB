@@ -2,6 +2,7 @@ package simpledb;
 
 import java.io.*;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -26,6 +27,10 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private Map<Integer, Page> buffMap;
+    private int maxPages;
+
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -33,17 +38,16 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        buffMap = new ConcurrentHashMap<>();
+        this.maxPages = numPages;
     }
-    
     public static int getPageSize() {
       return pageSize;
     }
-    
     // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
     public static void setPageSize(int pageSize) {
     	BufferPool.pageSize = pageSize;
     }
-    
     // THIS FUNCTION SHOULD ONLY BE USED FOR TESTING!!
     public static void resetPageSize() {
     	BufferPool.pageSize = PAGE_SIZE;
@@ -67,7 +71,28 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if (perm.permLevel != 0 || perm.permLevel != 1) {
+            //unknown permission
+            //should abort?
+        }
+
+        if (buffMap.containsKey(pid)) {
+            return buffMap.get(pid);
+        }
+
+        if (perm.permLevel == 1) {
+            if (this.isFull()){
+                // evict a page
+            }
+            //add a new page
+            return buffMap.get(pid);
+        } else {
+            throw new TransactionAbortedException();
+        }
+    }
+    private boolean isFull() {
+        if (buffMap.size() == maxPages) return true;
+        else return false;
     }
 
     /**
@@ -169,7 +194,6 @@ public class BufferPool {
         Needed by the recovery manager to ensure that the
         buffer pool doesn't keep a rolled back page in its
         cache.
-        
         Also used by B+ tree files to ensure that deleted pages
         are removed from the cache so they can be reused safely
     */
