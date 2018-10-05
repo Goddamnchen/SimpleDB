@@ -92,7 +92,7 @@ public class BufferPool {
 
     }
     private boolean isFull() {
-        if (buffMap.size() == maxPages) return true;
+        if (buffMap.size() >= maxPages) return true;
         else return false;
     }
 
