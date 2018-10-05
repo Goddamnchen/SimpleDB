@@ -27,7 +27,7 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
-    private Map<Integer, Page> buffMap;
+    private Map<PageId, Page> buffMap;
     private int maxPages;
 
 
@@ -71,24 +71,25 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        if (perm.permLevel != 0 || perm.permLevel != 1) {
+        if (perm.permLevel != 0 && perm.permLevel != 1) {
             //unknown permission
             //should abort?
+            throw new TransactionAbortedException();
         }
 
         if (buffMap.containsKey(pid)) {
             return buffMap.get(pid);
+        } else {
+            if (this.isFull()){
+                evictPage();
+            }
+            DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            Page newPage = dbfile.readPage(pid);
+            buffMap.put(pid, newPage);
+            return newPage;
+
         }
 
-        if (perm.permLevel == 1) {
-            if (this.isFull()){
-                // evict a page
-            }
-            //add a new page
-            return buffMap.get(pid);
-        } else {
-            throw new TransactionAbortedException();
-        }
     }
     private boolean isFull() {
         if (buffMap.size() == maxPages) return true;
