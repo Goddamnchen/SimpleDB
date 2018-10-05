@@ -43,14 +43,14 @@ public class HeapPage implements Page {
 
         // allocate and read the header slots of this page
         header = new byte[getHeaderSize()];
-        for (int i=0; i<header.length; i++)
+        for (int i = 0; i < header.length; i++)
             header[i] = dis.readByte();
         
         tuples = new Tuple[numSlots];
         try{
             // allocate and read the actual records of this page
-            for (int i=0; i<tuples.length; i++)
-                tuples[i] = readNextTuple(dis,i);
+            for (int i = 0; i < tuples.length; i++)
+                tuples[i] = readNextTuple(dis, i);
         }catch(NoSuchElementException e){
             e.printStackTrace();
         }
@@ -65,7 +65,7 @@ public class HeapPage implements Page {
     private int getNumTuples() {        
         // some code goes here
         int tupleSize = td.getSize();
-        int tupleNum = (int) Math.floor((BufferPool.getPageSize()*8) / (tupleSize * 8 + 1));        //page size(byte) * 8 = page bit
+        int tupleNum = (int) Math.floor((BufferPool.getPageSize() * 8) / (tupleSize * 8 + 1));        //page size(byte) * 8 = page bit
         return tupleNum;
 
     }
@@ -76,7 +76,7 @@ public class HeapPage implements Page {
      */
     private int getHeaderSize() {
         // some code goes here
-        int headerSize = (int) Math.ceil(numSlots / 8);     //slot
+        int headerSize = (int) Math.ceil(getNumTuples() / 8);     //slot
         return headerSize;
                  
     }
@@ -123,7 +123,7 @@ public class HeapPage implements Page {
         // if associated bit is not set, read forward to the next tuple, and
         // return null.
         if (!isSlotUsed(slotId)) {
-            for (int i=0; i<td.getSize(); i++) {
+            for (int i = 0; i < td.getSize(); i++) {
                 try {
                     dis.readByte();
                 } catch (IOException e) {
@@ -284,7 +284,7 @@ public class HeapPage implements Page {
     public int getNumEmptySlots() {
         // some code goes here
         int count = 0;
-        for (int i = 0; i < numSlots; i++) {
+        for (int i = 0; i < getNumTuples(); i++) {
             if (!isSlotUsed(i)) {
                 count++;
             }
@@ -318,15 +318,15 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return new TupleIterator();
+        return new PageTupleIterator();
     }
-    private class TupleIterator implements Iterator<Tuple> {
+    private class PageTupleIterator implements Iterator<Tuple> {
         private Tuple[] tupleList;     //tuples which have been set
         private int size;
         private int index;
 
-        public TupleIterator() {
-            this.size = numSlots - getNumEmptySlots();
+        public PageTupleIterator() {
+            this.size = getNumTuples() - getNumEmptySlots();
             this.tupleList= new Tuple[size];
             for (int i = 0, j = 0; i < numSlots; i++) {
                 if (isSlotUsed(i)) {
