@@ -1,5 +1,6 @@
 package simpledb;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
 
@@ -72,7 +73,21 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
         // some code goes here
-        return null;
+        int offset = pid.pageNumber() * BufferPool.getPageSize();
+        byte[] data = new byte[BufferPool.getPageSize()];
+        try {
+            RandomAccessFile raf = new RandomAccessFile(file, "r");
+            raf.seek(offset);
+            raf.read(data);
+            raf.close();
+            Page hp = new HeapPage((HeapPageId) pid, data);
+            return hp;
+        } catch (FileNotFoundException fnf) {
+            System.out.println(fnf.toString());
+        } catch (IOException ioe) {
+            System.out.println(ioe.toString());
+        }
+        throw new IllegalArgumentException();
     }
 
     // see DbFile.java for javadocs
@@ -86,8 +101,8 @@ public class HeapFile implements DbFile {
      */
     public int numPages() {
         // some code goes here
-
-        return 0;
+        int num = (int) Math.ceil(file.length() / BufferPool.getPageSize());
+        return num;
     }
 
     // see DbFile.java for javadocs
@@ -109,7 +124,107 @@ public class HeapFile implements DbFile {
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
         // some code goes here
-        return null;
+        return new HeapFileIterator(tid) ;
+    }
+    private class HeapFileIterator extends AbstractDbFileIterator {
+        TransactionId tid;
+        int tupleNum;
+        int tableId;
+        Tuple next;
+        LinkedList<Tuple> tupleList;
+
+
+        public HeapFileIterator(TransactionId tid) {
+            super();
+            this.tid = tid;
+            this.tableId = getId();
+            this.next = null;
+            this.tupleList = new LinkedList<>();
+
+
+        }
+        /**
+         * Opens the iterator
+         * @throws DbException when there are problems opening/accessing the database.
+         */
+        @Override
+        public void open() throws DbException, TransactionAbortedException {
+            // enqueue pages
+            for (int i = 0; i < numPages(); i ++ ) {
+                PageId pid = new HeapPageId(tableId, i);
+                HeapPage hp = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_ONLY);
+                // enqueue tuples
+                Iterator<Tuple> pageIterator = hp.iterator();
+                while (true) {
+                    if (pageIterator.hasNext()) {
+                        tupleList.add(pageIterator.next());
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+        }
+        /** @return true if there are more tuples available, false if no more tuples or iterator isn't open. */
+        @Override
+        public boolean hasNext() throws DbException, TransactionAbortedException {
+            if (next == null) next = readNext();
+            return next != null;
+        }
+
+        /**
+         * Gets the next tuple from the operator (typically implementing by reading
+         * from a child operator or an access method).
+         *
+         * @return The next tuple in the iterator.
+         * @throws NoSuchElementException if there are no more tuples
+         */
+        @Override
+        public Tuple next() throws DbException, TransactionAbortedException,
+                NoSuchElementException {
+            if (next == null) {
+                next = readNext();
+                if (next == null) throw new NoSuchElementException();
+            }
+
+            Tuple result = next;
+            this.tupleList.removeFirst();
+            next = null;
+            return result;
+        }
+        /** Reads the next tuple from the underlying source.
+         @return the next Tuple in the iterator, null if the iteration is finished. */
+        @Override
+        protected Tuple readNext() throws DbException, TransactionAbortedException {
+            Tuple head = tupleList.peek();
+            return head;
+        }
+
+        /**
+         * Resets the iterator to the start.
+         * @throws DbException When rewind is unsupported.
+         */
+        @Override
+        public void rewind() throws DbException, TransactionAbortedException {
+            close();
+            open();
+
+        }
+        /** If subclasses override this, they should call super.close(). */
+        @Override
+        public void close() {
+            // Ensures that a future call to next() will fail
+            super.close();
+            next = null;
+            this.tid = null;
+            this.tupleNum = 0;
+            this.tableId = 0;
+            this.next = null;
+            this.tupleList.clear();
+        }
+
+
+
     }
 
 }
