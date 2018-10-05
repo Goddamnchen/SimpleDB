@@ -218,7 +218,6 @@ public class HeapFile implements DbFile {
             next = null;
             this.tid = null;
             this.tupleNum = 0;
-            this.tableId = 0;
             this.next = null;
             this.tupleList.clear();
         }
