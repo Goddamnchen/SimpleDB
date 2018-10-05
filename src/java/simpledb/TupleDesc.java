@@ -106,7 +106,7 @@ public class TupleDesc implements Serializable {
     public String getFieldName(int i) throws NoSuchElementException {
         // some code goes here
         if (!validateIndex(i)) {
-            throw new NoSuchElementException("invalid index i in getFieldName(i)");
+            throw new NoSuchElementException("Invalid index i in getFieldName(i)");
         }
         String fieldName = tdItemList.get(i).fieldName;
         if (fieldName == null) {
