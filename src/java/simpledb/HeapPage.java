@@ -65,7 +65,7 @@ public class HeapPage implements Page {
     private int getNumTuples() {        
         // some code goes here
         int tupleSize = td.getSize();
-        int tupleNum = (int) Math.floor((BufferPool.getPageSize() * 8) / (tupleSize * 8 + 1));        //page size(byte) * 8 = page bit
+        int tupleNum = (int) Math.floor((BufferPool.getPageSize() * 8.0) / (tupleSize * 8.0 + 1));        //page size(byte) * 8 = page bit
         return tupleNum;
 
     }
@@ -76,7 +76,7 @@ public class HeapPage implements Page {
      */
     private int getHeaderSize() {
         // some code goes here
-        int headerSize = (int) Math.ceil(getNumTuples() / 8);     //slot
+        int headerSize = (int) Math.ceil(getNumTuples() / 8.0);     //Bug fixed, turn 8 --> 8.0 will turn header's size from 42 to 43 TODO: Why?
         return headerSize;
                  
     }
@@ -299,7 +299,15 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        int bits = header[ i / 8 ];
+        // TODO: ScanSmall debug
+        // TODO: ArrayIndexOutofBound when having random table with 3 columns 0 row
+        // TODO: @parse i / 8.0, which should < header.length = 42
+        // TODO: Bug situation 336/8 = 42 --> ArrayIndexOutOfBound
+
+        //if (i / 8 > header.length) {
+        //    return false;
+        //}
+        int bits = header[ (int) (i / 8.0) ];
         // Check if corresponding bit is set
         return (bits & (1 << ( i % 8 )) ) > 0;
     }
