@@ -131,7 +131,7 @@ public class HeapFile implements DbFile {
         int tupleNum;
         int tableId;
         Tuple next;
-        LinkedList<Tuple> tupleList;
+        LinkedList<Tuple> tupleQueue;
 
 
         public HeapFileIterator(TransactionId tid) {
@@ -139,7 +139,7 @@ public class HeapFile implements DbFile {
             this.tid = tid;
             this.tableId = getId();
             this.next = null;
-            this.tupleList = new LinkedList<>();
+            this.tupleQueue = new LinkedList<>();
 
 
         }
@@ -157,7 +157,7 @@ public class HeapFile implements DbFile {
                 Iterator<Tuple> pageIterator = hp.iterator();
                 while (true) {
                     if (pageIterator.hasNext()) {
-                        tupleList.add(pageIterator.next());
+                        tupleQueue.add(pageIterator.next());
                     } else {
                         break;
                     }
@@ -188,7 +188,7 @@ public class HeapFile implements DbFile {
             }
 
             Tuple result = next;
-            this.tupleList.removeFirst();
+            this.tupleQueue.removeFirst();
             next = null;
             return result;
         }
@@ -196,7 +196,7 @@ public class HeapFile implements DbFile {
          @return the next Tuple in the iterator, null if the iteration is finished. */
         @Override
         protected Tuple readNext() throws DbException, TransactionAbortedException {
-            Tuple head = tupleList.peek();
+            Tuple head = tupleQueue.peek();
             return head;
         }
 
@@ -219,7 +219,7 @@ public class HeapFile implements DbFile {
             this.tid = null;
             this.tupleNum = 0;
             this.next = null;
-            this.tupleList.clear();
+            this.tupleQueue.clear();
         }
 
 

@@ -301,7 +301,7 @@ public class HeapPage implements Page {
         // some code goes here
         int bits = header[ i / 8 ];
         // Check if corresponding bit is set
-        return (bits & (1<<(i%8))) > 0;
+        return (bits & (1 << ( i % 8 )) ) > 0;
     }
 
     /**
