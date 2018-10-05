@@ -40,15 +40,12 @@ public class HeapPage implements Page {
         this.td = Database.getCatalog().getTupleDesc(id.getTableId());
         this.numSlots = getNumTuples();
         DataInputStream dis = new DataInputStream(new ByteArrayInputStream(data));
-
-        // allocate and read the header slots of this page
         header = new byte[getHeaderSize()];
         for (int i = 0; i < header.length; i++)
             header[i] = dis.readByte();
         
         tuples = new Tuple[numSlots];
         try{
-            // allocate and read the actual records of this page
             for (int i = 0; i < tuples.length; i++)
                 tuples[i] = readNextTuple(dis, i);
         }catch(NoSuchElementException e){
@@ -76,7 +73,8 @@ public class HeapPage implements Page {
      */
     private int getHeaderSize() {
         // some code goes here
-        int headerSize = (int) Math.ceil(getNumTuples() / 8.0);     //Bug fixed, turn 8 --> 8.0 will turn header's size from 42 to 43 TODO: Why?
+        //Bug fixed, turn 8 --> 8.0 will turn header's size from 42 to 43 TODO: Why?
+        int headerSize = (int) Math.ceil(getNumTuples() / 8.0);
         return headerSize;
                  
     }
