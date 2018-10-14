@@ -1,5 +1,7 @@
 package simpledb;
 
+import sun.misc.LRUCache;
+
 import java.io.*;
 
 import java.util.Map;
@@ -201,6 +203,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        buffMap.remove(pid);
     }
 
     /**
@@ -210,6 +213,10 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+        Page page = buffMap.get(pid);
+        file.writePage(page);
+        page.markDirty(false, null);        //reset
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -226,6 +233,20 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        boolean evicted = false;
+        for (PageId pid : buffMap.keySet()) {
+            try
+            {
+                flushPage(pid);
+                discardPage(pid);
+                evicted = true;
+                break;
+            }
+            catch (IOException e)
+            {
+                throw new DbException("Error trying to flush page during eviction.");
+            }
+        }
+        if (!evicted) throw new DbException("no pages could be evicted");
     }
-
 }

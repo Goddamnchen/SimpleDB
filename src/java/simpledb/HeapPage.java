@@ -10,11 +10,13 @@ import java.io.*;
  */
 public class HeapPage implements Page {
 
-    final HeapPageId pid;
-    final TupleDesc td;     //Tuple descriptor for this Dbfile
-    final byte header[];    //Bitmap    Record1 | Record2 | Record3| end pointer | numSlots||
-    final Tuple tuples[];   //Records in this page
-    final int numSlots;     //Number of record slots
+    private HeapPageId pid;
+    private TupleDesc td;     //Tuple descriptor for this Dbfile
+    private byte header[];    //Bitmap    Record1 | Record2 | Record3| end pointer | numSlots||
+    private Tuple tuples[];   //Records in this page
+    private int numSlots;     //Number of record slots
+    private boolean isDirty;
+    private TransactionId dirtyTid;
 
     byte[] oldData;
     private final Byte oldDataLock=new Byte((byte)0);
@@ -264,7 +266,9 @@ public class HeapPage implements Page {
      */
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
-	// not necessary for lab1
+	    // not necessary for lab1
+        this.isDirty = dirty;
+        this.dirtyTid = tid;
     }
 
     /**
@@ -272,8 +276,9 @@ public class HeapPage implements Page {
      */
     public TransactionId isDirty() {
         // some code goes here
-	// Not necessary for lab1
-        return null;      
+	    // Not necessary for lab1
+        TransactionId tid = this.dirtyTid;
+        return tid;
     }
 
     /**
