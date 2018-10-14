@@ -10,5 +10,6 @@ testreport/
 .project
 simpledb_javadoc
 *.pdf
+*.class
 overview
 bin/
