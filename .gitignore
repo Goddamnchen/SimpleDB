@@ -11,3 +11,4 @@ testreport/
 simpledb_javadoc
 *.pdf
 overview
+bin/
