@@ -13,4 +13,3 @@ simpledb_javadoc
 *.class
 overview
 bin/
-test
