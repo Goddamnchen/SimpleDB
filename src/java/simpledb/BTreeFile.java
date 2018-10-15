@@ -4,6 +4,7 @@ import java.io.*;
 import java.util.*;
 import java.nio.channels.FileChannel;
 
+import edu.princeton.cs.algs4.BTree;
 import simpledb.Predicate.Op;
 
 /**
@@ -193,10 +194,34 @@ public class BTreeFile implements DbFile {
 	 * 
 	 */
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
-			Field f) 
+			Field f)
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-        return null;
+		if (pid.pgcateg() == BTreePageId.LEAF) {
+			BTreeLeafPage leafPage = (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+			return leafPage;
+		}
+		BTreeInternalPage curPage = (BTreeInternalPage) getPage(tid, dirtypages, pid, Permissions.READ_ONLY);
+		BTreeEntry curEntry;
+		BTreePageId nextPid;
+		Iterator<BTreeEntry> curIterator= curPage.iterator();
+		curEntry = curIterator.next();
+		if (f == null) {
+			nextPid = curEntry.getLeftChild();
+			return findLeafPage(tid, dirtypages, nextPid, perm, f);
+		} else {
+			while (curIterator.hasNext()) {
+				if (f.compare(Op.GREATER_THAN, curEntry.getKey())) {    //right: >
+					curEntry = curIterator.next();
+				} else {
+					break;
+				}
+			}
+			// right most or less or equal than curEntry
+			if (f.compare(Op.LESS_THAN_OR_EQ, curEntry.getKey())) nextPid = curEntry.getLeftChild();
+			else nextPid = curEntry.getRightChild();
+			return findLeafPage(tid, dirtypages, nextPid, perm, f);
+		}
 	}
 	
 	/**
