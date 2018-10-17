@@ -4,6 +4,7 @@ import sun.misc.LRUCache;
 
 import java.io.*;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -161,6 +162,12 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile table = Database.getCatalog().getDatabaseFile(tableId);
+        ArrayList<Page> dirtyPages =  table.insertTuple(tid, t);
+        for (Page each : dirtyPages) {
+            each.markDirty(true, tid);
+            buffMap.put(each.getId(), each);
+        }
     }
 
     /**
@@ -180,6 +187,12 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile table = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        ArrayList<Page> dirtyPages =  table.deleteTuple(tid, t);
+        for (Page each : dirtyPages) {
+            each.markDirty(true, tid);
+            buffMap.put(each.getId(), each);
+        }
     }
 
     /**
@@ -190,6 +203,9 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+        for (PageId each : buffMap.keySet()) {
+            flushPage(each);
+        }
 
     }
 

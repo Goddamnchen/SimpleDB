@@ -327,7 +327,7 @@ public class BTreeFile implements DbFile {
 		dirtypages.put(oldPage.getId(), oldPage);
 		dirtypages.put(newPage.getId(), newPage);
 
-		if (field.compare(Op.GREATER_THAN, middleKey)) return newPage;
+		if (field.compare(Op.GREATER_THAN_OR_EQ, middleKey)) return newPage;
 		else return oldPage;
 	}
 	
@@ -357,9 +357,61 @@ public class BTreeFile implements DbFile {
 			BTreeInternalPage page, Field field) 
 					throws DbException, IOException, TransactionAbortedException {
 		// some code goes here
-		return null;
+		BTreeInternalPage newInPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		BTreeInternalPage oldInPage = page;
+		int totalNum = oldInPage.getNumEntries();        // total entries number
+		int newNum = ((totalNum + 1) / 2) - 1;			 // number of entries needed to put into new page
+ 		Iterator<BTreeEntry> reIterator = oldInPage.reverseIterator();
+		for (int i = 0; i < newNum && reIterator.hasNext(); i++) {
+			// Split and delete entries needed to put into new page from old page
+			// When splitting internal node, need to update parent pointers of each children that were moved
+			// Since the BTreeEntry is just an interface and not an object actually stored on the page, updating the fields of BTreeEntry will not modify the underlying page.
+			// In order to change the data on the page, you need to call BTreeInternalPage.updateEntry()
+			// The middleEntry needed to pop up will delete and update separately
+			BTreeEntry each = reIterator.next();
+			oldInPage.deleteKeyAndRightChild(each);
+			// oldInPage.updateEntry(each); 		delete operation does not need to update
+ 			newInPage.insertEntry(each);
+			updateParentPointers(tid, dirtypages, newInPage);
+			newInPage.updateEntry(each);
+		}
+		// Dealing with middleEntry
+		// Delete and Update old internal page
+		BTreeEntry middleEntry = reIterator.next();
+		if (middleEntry == null) {
+			throw new IllegalArgumentException("middleKey has not been initialize");
+		}
+		oldInPage.deleteKeyAndRightChild(middleEntry);
+		updateParentPointers(tid, dirtypages, oldInPage);
+		Field middleKey = middleEntry.getKey();
+
+		// Get parent internal node of previous old page not being splitted
+		// Create popped up entry and Link its pointer of children to two splitted pages
+		// Similarly, make sure the newly splitted pages will also point to parent
+		// Insert popped up entry in to parent page
+		// update keys and pointers of parent's page and update
+		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, oldInPage.getParentId(), middleKey);
+		BTreeEntry poppedEntry = new BTreeEntry(middleKey, oldInPage.getId(), newInPage.getId());
+		poppedEntry.setLeftChild(oldInPage.getId());
+		poppedEntry.setRightChild(newInPage.getId());
+		newInPage.setParentId(parent.getId());
+		oldInPage.setParentId(parent.getId());
+		parent.insertEntry(poppedEntry);
+		parent.updateEntry(poppedEntry);
+		updateParentPointers(tid, dirtypages, parent);
+
+
+		dirtypages.put(parent.getId(), parent);        // redundant? because encapsulated getPage() has automatically mark page dirty
+		dirtypages.put(oldInPage.getId(), oldInPage);
+		dirtypages.put(newInPage.getId(), newInPage);
+
+		if (field.compare(Op.GREATER_THAN_OR_EQ, middleKey)) {
+			return newInPage;
+		} else {
+			return oldInPage;
+		}
 	}
-	
+
 	/**
 	 * Method to encapsulate the process of getting a parent page ready to accept new entries.
 	 * This may mean creating a page to become the new root of the tree, splitting the existing 
