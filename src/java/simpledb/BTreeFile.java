@@ -273,8 +273,62 @@ public class BTreeFile implements DbFile {
 		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a 
 		// tuple with the given key field should be inserted.
-        return null;
-		
+		BTreeLeafPage newPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
+		BTreeLeafPage oldPage = page;
+		int tNum = oldPage.getNumTuples();
+		Iterator<Tuple> reIterator = oldPage.reverseIterator();
+		for (int i = 0; i < (tNum +1) / 2; i++) {
+			if (reIterator.hasNext()) {
+				Tuple each = reIterator.next();
+				// should delete first to ensure to be updated that not storing on any page
+				oldPage.deleteTuple(each);
+				newPage.insertTuple(each);
+			} else {
+				throw new DbException("No more tuple to immigrate");
+			}
+		}
+//		Stack<Tuple> split = new Stack<>();
+//		for (int i = 0; i < (tNum + 1) / 2; i++) {
+//			if (reIterator.hasNext()) {
+//				Tuple each = reIterator.next();
+//				split.push(each);
+//			} else {
+//				throw new DbException("No more tuple to immigrate");
+//			}
+//		}
+//		while(split.size() != 0) {
+//			Tuple tuple =split.pop();
+//			oldPage.deleteTuple(tuple);
+//			newPage.insertTuple(tuple);
+//		}
+		Field middleKey = newPage.getTuple(0).getField(keyField);
+		// prepare to copy middleKey up to parent
+		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, oldPage.getParentId(), middleKey);
+		// establish sibling connection first
+		BTreePageId rightSiblingId = oldPage.getRightSiblingId();		// old right sibling
+		newPage.setRightSiblingId(rightSiblingId);
+		newPage.setLeftSiblingId(oldPage.getId());
+		oldPage.setRightSiblingId(newPage.getId());
+		if (rightSiblingId != null) {
+			BTreeLeafPage oldRightSiblingPage = (BTreeLeafPage) getPage(tid, dirtypages, oldPage.getRightSiblingId(), Permissions.READ_WRITE);
+			oldRightSiblingPage.setLeftSiblingId(newPage.getId());
+			dirtypages.put(oldRightSiblingPage.getId(), oldRightSiblingPage);
+		}
+		// establish parent connection
+		newPage.setParentId(parent.getId());
+		updateParentPointers(tid, dirtypages, parent);
+		// copy middle key and insert to internalNode
+		BTreeEntry newEntry = new BTreeEntry(middleKey, oldPage.getId(), newPage.getId());
+		parent.insertEntry(newEntry);
+		// updata internalPage
+		parent.updateEntry(newEntry);
+
+		dirtypages.put(parent.getId(), parent);		// redundant? because encapsulated getPage() has automatically mark page dirty
+		dirtypages.put(oldPage.getId(), oldPage);
+		dirtypages.put(newPage.getId(), newPage);
+
+		if (field.compare(Op.GREATER_THAN, middleKey)) return newPage;
+		else return oldPage;
 	}
 	
 	/**
