@@ -1,11 +1,7 @@
 package simpledb;
 
-import sun.misc.LRUCache;
-
 import java.io.*;
-
-import java.util.ArrayList;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -32,6 +28,7 @@ public class BufferPool {
 
     private Map<PageId, Page> buffMap;
     private int maxPages;
+    Queue<PageId> simpleLRU;
 
 
     /**
@@ -43,6 +40,7 @@ public class BufferPool {
         // some code goes here
         buffMap = new ConcurrentHashMap<>();
         this.maxPages = numPages;
+        simpleLRU = new ArrayDeque<>();
     }
     public static int getPageSize() {
       return pageSize;
@@ -79,9 +77,9 @@ public class BufferPool {
             //should abort?
             throw new TransactionAbortedException();
         }
-
+        Page returnPage;
         if (buffMap.containsKey(pid)) {
-            return buffMap.get(pid);
+            returnPage = buffMap.get(pid);
         } else {
             if (this.isFull()){
                 evictPage();
@@ -89,9 +87,10 @@ public class BufferPool {
             DbFile dbfile = Database.getCatalog().getDatabaseFile(pid.getTableId());
             Page newPage = dbfile.readPage(pid);
             buffMap.put(pid, newPage);
-            return newPage;
-
+            returnPage = newPage;
         }
+        updateSimpleLRU(pid);
+        return returnPage;
 
     }
     private boolean isFull() {
@@ -167,6 +166,7 @@ public class BufferPool {
         for (Page each : dirtyPages) {
             each.markDirty(true, tid);
             buffMap.put(each.getId(), each);
+            updateSimpleLRU(each.getId());
         }
     }
 
@@ -192,6 +192,7 @@ public class BufferPool {
         for (Page each : dirtyPages) {
             each.markDirty(true, tid);
             buffMap.put(each.getId(), each);
+            updateSimpleLRU(each.getId());
         }
     }
 
@@ -223,7 +224,7 @@ public class BufferPool {
     }
 
     /**
-     * Flushes a certain page to disk
+     * Flushes to disk a certain least recently used page removed from simpleLRU Queue
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
@@ -249,20 +250,26 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        boolean evicted = false;
-        for (PageId pid : buffMap.keySet()) {
-            try
-            {
+        if (simpleLRU.size() != 0) {
+            try {
+                PageId pid = simpleLRU.poll();
                 flushPage(pid);
                 discardPage(pid);
-                evicted = true;
-                break;
-            }
-            catch (IOException e)
-            {
+            } catch (IOException e) {
                 throw new DbException("Error trying to flush page during eviction.");
             }
+        } else {
+            throw new DbException("No pages could be evicted");
         }
-        if (!evicted) throw new DbException("no pages could be evicted");
+    }
+
+    /* Helper method for updating the position of Page of pid in Queue*/
+    private void updateSimpleLRU(PageId pid) {
+        if (simpleLRU.contains(pid)) {
+            simpleLRU.remove(pid);
+            simpleLRU.add(pid);
+        } else {
+            simpleLRU.add(pid);
+        }
     }
 }
