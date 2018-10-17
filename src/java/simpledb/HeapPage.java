@@ -302,17 +302,19 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        // TODO: ScanSmall debug
-        // TODO: ArrayIndexOutofBound when having random table with 3 columns 0 row
-        // TODO: @parse i / 8.0, which should < header.length = 42
-        // TODO: Bug situation 336/8 = 42 --> ArrayIndexOutOfBound
+        int headerbit = i % 8;
+        int headerbyte = (i - headerbit) / 8;
+        return (header[headerbyte] & (1 << headerbit)) != 0;
 
-        //if (i / 8 > header.length) {
-        //    return false;
-        //}
-        int bits = header[ (int) (i / 8.0) ];
-        // Check if corresponding bit is set
-        return (bits & (1 << ( i % 8 )) ) > 0;
+//        // TODO: ScanSmall debug
+//        // TODO: ArrayIndexOutofBound when having random table with 3 columns 0 row
+//        // TODO: @parse i / 8.0, which should < header.length = 42
+//        // TODO: Bug situation 336/8 = 42 --> ArrayIndexOutOfBound
+//        //if (i / 8 > header.length) return false;
+//
+//        int bits = header[ (int) (i / 8.0) ];
+//        // Check if corresponding bit is set
+//        return (bits & (1 << ( i % 8 )) ) > 0;
     }
 
     /**
