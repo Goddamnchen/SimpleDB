@@ -34,8 +34,14 @@ public class Catalog {
         }
     }
 
-    private Map<Integer, Table> catalog;        //DbFile_id - Table
-    private Map<String, Table> nameMap;        //Table_name - Table
+    private final Map<Integer, DbFile> id2table;
+    private final Map<Integer, TupleDesc> id2tupledesc;
+    private final Map<String, Integer> name2id;
+    private final Map<Integer, String> id2name;
+    private final Map<Integer, String> pkey;
+
+//    private Map<Integer, Table> catalog;        //DbFile_id - Table
+//    private Map<String, Table> nameMap;        //Table_name - Table
 
     /**
      * Constructor.
@@ -43,8 +49,15 @@ public class Catalog {
      */
     public Catalog() {
         // some code goes here
-        catalog = new HashMap<>();
-        nameMap = new HashMap<>();
+        id2table = new ConcurrentHashMap<Integer, DbFile>();
+        id2tupledesc = new ConcurrentHashMap<Integer, TupleDesc>();
+        name2id = new ConcurrentHashMap<String,Integer>();
+        id2name = new ConcurrentHashMap<Integer,String>();
+        pkey = new ConcurrentHashMap<Integer,String>();
+
+//        catalog = new HashMap<>();
+//        nameMap = new HashMap<>();
+
     }
 
     /**
@@ -58,9 +71,25 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
-        Table table = new Table(file, name, pkeyField);
-        catalog.put(file.getId(), table);
-        nameMap.put(name, new Table(file, name, pkeyField));
+        // It's not strictly necessary to remove existing tables by the same name;
+        // it means that you can no longer get at those tables by ID, but it saves
+        // some amount of memory.
+        if (name2id.containsKey(name)) {
+            id2table.remove( name2id.get(name) );
+            id2tupledesc.remove( name2id.get(name) );
+            name2id.remove(name);
+        }
+
+        id2tupledesc.put(file.getId(), file.getTupleDesc());
+        id2table.put(file.getId(), file);
+        name2id.put(name, file.getId());
+        id2name.put(file.getId(), name);
+
+        pkey.put(file.getId(), pkeyField);
+
+//        Table table = new Table(file, name, pkeyField);
+//        catalog.put(file.getId(), table);
+//        nameMap.put(name, new Table(file, name, pkeyField));
     }
 
     public void addTable(DbFile file, String name) {
@@ -84,12 +113,20 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        if (!nameMap.containsKey(name)) {
-            throw new NoSuchElementException("Not exist table named " + name);
+        if (name==null)
+            throw new NoSuchElementException();
+        if (name2id.get(name) == null) {
+            throw new NoSuchElementException();
         }
-        Table table = nameMap.get(name);
-        int tid = table.file.getId();
-        return tid;
+
+        return name2id.get(name).intValue();
+
+//        if (!nameMap.containsKey(name)) {
+//            throw new NoSuchElementException("Not exist table named " + name);
+//        }
+//        Table table = nameMap.get(name);
+//        int tid = table.file.getId();
+//        return tid;
     }
 
     /**
@@ -100,12 +137,14 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        if (!catalog.containsKey(tableid)) {
-            throw new NoSuchElementException("Not exist table with table id " + tableid);
-        }
-        Table table = catalog.get(tableid);
-        TupleDesc schema = table.file.getTupleDesc();
-        return schema;
+        return id2tupledesc.get(new Integer(tableid));
+
+//        if (!catalog.containsKey(tableid)) {
+//            throw new NoSuchElementException("Not exist table with table id " + tableid);
+//        }
+//        Table table = catalog.get(tableid);
+//        TupleDesc schema = table.file.getTupleDesc();
+//        return schema;
     }
 
     /**
@@ -116,44 +155,55 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        if (!catalog.containsKey(tableid)) {
-            throw new NoSuchElementException("Not exist table with table id " + tableid);
-        }
-        Table table = catalog.get(tableid);
-        DbFile heapFile = table.file;
-        return heapFile;
+        return id2table.get(tableid);
+
+//        if (!catalog.containsKey(tableid)) {
+//            throw new NoSuchElementException("Not exist table with table id " + tableid);
+//        }
+//        Table table = catalog.get(tableid);
+//        DbFile heapFile = table.file;
+//        return heapFile;
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        if (!catalog.containsKey(tableid)) {
-            throw new NoSuchElementException("Not exist table with table id " + tableid);
-        }
-        Table table = catalog.get(tableid);
-        String pkey = table.pkeyField;
-        return null;
+        return pkey.get(tableid);
+
+//        if (!catalog.containsKey(tableid)) {
+//            throw new NoSuchElementException("Not exist table with table id " + tableid);
+//        }
+//        Table table = catalog.get(tableid);
+//        String pkey = table.pkeyField;
+//        return null;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return catalog.keySet().iterator();
+        return id2table.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        if (!catalog.containsKey(id)) {
-            throw new NoSuchElementException("Not exist table with table id " + id);
-        }
-        Table table = catalog.get(id);
-        String name = table.name;
-        return name;
+        return id2name.get(id);
+//        if (!catalog.containsKey(id)) {
+//            throw new NoSuchElementException("Not exist table with table id " + id);
+//        }
+//        Table table = catalog.get(id);
+//        String name = table.name;
+//        return name;
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
-        catalog.clear();
-        nameMap.clear();
+        id2table.clear();
+        id2tupledesc.clear();
+        name2id.clear();
+        id2name.clear();
+        pkey.clear();
+
+//        catalog.clear();
+//        nameMap.clear();
     }
     
     /**
