@@ -205,7 +205,13 @@ public class BTreeFile implements DbFile {
 		BTreeEntry curEntry;
 		BTreePageId nextPid;
 		Iterator<BTreeEntry> curIterator= curPage.iterator();
-		curEntry = curIterator.next();
+		// check empty page
+		if (!curIterator.hasNext()) {
+			throw new DbException("Page" + curPage + "with pageId: " + curPage.getId() + "has no entries");
+		} else {
+			curEntry = curIterator.next();
+		}
+
 		if (f == null) {
 			nextPid = curEntry.getLeftChild();
 			return findLeafPage(tid, dirtypages, nextPid, perm, f);
@@ -217,9 +223,8 @@ public class BTreeFile implements DbFile {
 					break;
 				}
 			}
-			// right most or less or equal than curEntry
 			if (f.compare(Op.LESS_THAN_OR_EQ, curEntry.getKey())) nextPid = curEntry.getLeftChild();
-			else nextPid = curEntry.getRightChild();
+			else nextPid = curEntry.getRightChild();		// right most
 			return findLeafPage(tid, dirtypages, nextPid, perm, f);
 		}
 	}
@@ -275,9 +280,8 @@ public class BTreeFile implements DbFile {
 		// tuple with the given key field should be inserted.
 		BTreeLeafPage newPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
 		BTreeLeafPage oldPage = page;
-		int tNum = oldPage.getNumTuples();
 		Iterator<Tuple> reIterator = oldPage.reverseIterator();
-		for (int i = 0; i < (tNum +1) / 2; i++) {
+		for (int i = 0; i < oldPage.getMaxTuples() / 2; i++) {
 			if (reIterator.hasNext()) {
 				Tuple each = reIterator.next();
 				// should delete first to ensure to be updated that not storing on any page
@@ -287,45 +291,24 @@ public class BTreeFile implements DbFile {
 				throw new DbException("No more tuple to immigrate");
 			}
 		}
-//		Stack<Tuple> split = new Stack<>();
-//		for (int i = 0; i < (tNum + 1) / 2; i++) {
-//			if (reIterator.hasNext()) {
-//				Tuple each = reIterator.next();
-//				split.push(each);
-//			} else {
-//				throw new DbException("No more tuple to immigrate");
-//			}
-//		}
-//		while(split.size() != 0) {
-//			Tuple tuple =split.pop();
-//			oldPage.deleteTuple(tuple);
-//			newPage.insertTuple(tuple);
-//		}
 		Field middleKey = newPage.getTuple(0).getField(keyField);
-		// prepare to copy middleKey up to parent
+		// copy middleKey up to parent and update parent pointer
 		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, oldPage.getParentId(), middleKey);
-		// establish sibling connection first
-		BTreePageId rightSiblingId = oldPage.getRightSiblingId();		// old right sibling
-		newPage.setRightSiblingId(rightSiblingId);
-		newPage.setLeftSiblingId(oldPage.getId());
-		oldPage.setRightSiblingId(newPage.getId());
-		if (rightSiblingId != null) {
-			BTreeLeafPage oldRightSiblingPage = (BTreeLeafPage) getPage(tid, dirtypages, oldPage.getRightSiblingId(), Permissions.READ_WRITE);
-			oldRightSiblingPage.setLeftSiblingId(newPage.getId());
-			dirtypages.put(oldRightSiblingPage.getId(), oldRightSiblingPage);
-		}
-		// establish parent connection
-		newPage.setParentId(parent.getId());
-		updateParentPointers(tid, dirtypages, parent);
-		// copy middle key and insert to internalNode
-		BTreeEntry newEntry = new BTreeEntry(middleKey, oldPage.getId(), newPage.getId());
+	    BTreeEntry newEntry = new BTreeEntry(middleKey, oldPage.getId(), newPage.getId());
 		parent.insertEntry(newEntry);
+		newPage.setParentId(parent.getId());
 		// updata internalPage
 		parent.updateEntry(newEntry);
 
-		dirtypages.put(parent.getId(), parent);		// redundant? because encapsulated getPage() has automatically mark page dirty
-		dirtypages.put(oldPage.getId(), oldPage);
-		dirtypages.put(newPage.getId(), newPage);
+		// establish sibling connection
+		BTreePageId rightSiblingId = oldPage.getRightSiblingId();		// old right sibling
+		if (rightSiblingId != null) {
+			BTreeLeafPage oldRightSiblingPage = (BTreeLeafPage) getPage(tid, dirtypages, oldPage.getRightSiblingId(), Permissions.READ_WRITE);
+			oldRightSiblingPage.setLeftSiblingId(newPage.getId());
+			newPage.setRightSiblingId(rightSiblingId);
+		}
+		newPage.setLeftSiblingId(oldPage.getId());
+		oldPage.setRightSiblingId(newPage.getId());
 
 		if (field.compare(Op.GREATER_THAN_OR_EQ, middleKey)) return newPage;
 		else return oldPage;
@@ -359,51 +342,42 @@ public class BTreeFile implements DbFile {
 		// some code goes here
 		BTreeInternalPage newInPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
 		BTreeInternalPage oldInPage = page;
-		int totalNum = oldInPage.getNumEntries();        // total entries number
-		int newNum = ((totalNum + 1) / 2) - 1;			 // number of entries needed to put into new page
  		Iterator<BTreeEntry> reIterator = oldInPage.reverseIterator();
-		for (int i = 0; i < newNum && reIterator.hasNext(); i++) {
-			// Split and delete entries needed to put into new page from old page
-			// When splitting internal node, need to update parent pointers of each children that were moved
-			// Since the BTreeEntry is just an interface and not an object actually stored on the page, updating the fields of BTreeEntry will not modify the underlying page.
-			// In order to change the data on the page, you need to call BTreeInternalPage.updateEntry()
-			// The middleEntry needed to pop up will delete and update separately
-			BTreeEntry each = reIterator.next();
-			oldInPage.deleteKeyAndRightChild(each);
-			// oldInPage.updateEntry(each); 		delete operation does not need to update
- 			newInPage.insertEntry(each);
-			updateParentPointers(tid, dirtypages, newInPage);
-			newInPage.updateEntry(each);
+		for (int i = 0; i < oldInPage.getMaxEntries() / 2; i++) {
+			if (reIterator.hasNext()) {
+				BTreeEntry each = reIterator.next();
+				// Split and delete entries needed to put into new page from old page
+				// When splitting internal node, need to update parent pointers of each children that were moved
+				// Since the BTreeEntry is just an interface and not an object actually stored on the page, updating the fields of BTreeEntry will not modify the underlying page.
+				// In order to change the data on the page, you need to call BTreeInternalPage.updateEntry()
+				// The middleEntry needed to pop up will delete and update separately
+				// oldInPage.updateEntry(each); 		delete operation does not need to update
+				oldInPage.deleteKeyAndRightChild(each);
+				newInPage.insertEntry(each);
+				newInPage.updateEntry(each);
+			} else {
+				throw new DbException("No more tuple to immigrate");
+			}
 		}
 		// Dealing with middleEntry
-		// Delete and Update old internal page
 		BTreeEntry middleEntry = reIterator.next();
 		if (middleEntry == null) {
 			throw new IllegalArgumentException("middleKey has not been initialize");
 		}
 		oldInPage.deleteKeyAndRightChild(middleEntry);
-		updateParentPointers(tid, dirtypages, oldInPage);
 		Field middleKey = middleEntry.getKey();
 
 		// Get parent internal node of previous old page not being splitted
-		// Create popped up entry and Link its pointer of children to two splitted pages
+		// Create popped up entry with its pointers to two splitting children
 		// Similarly, make sure the newly splitted pages will also point to parent
 		// Insert popped up entry in to parent page
 		// update keys and pointers of parent's page and update
 		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, oldInPage.getParentId(), middleKey);
 		BTreeEntry poppedEntry = new BTreeEntry(middleKey, oldInPage.getId(), newInPage.getId());
-		poppedEntry.setLeftChild(oldInPage.getId());
-		poppedEntry.setRightChild(newInPage.getId());
-		newInPage.setParentId(parent.getId());
-		oldInPage.setParentId(parent.getId());
 		parent.insertEntry(poppedEntry);
+		newInPage.setParentId(parent.getId());
+		updateParentPointers(tid, dirtypages, newInPage);
 		parent.updateEntry(poppedEntry);
-		updateParentPointers(tid, dirtypages, parent);
-
-
-		dirtypages.put(parent.getId(), parent);        // redundant? because encapsulated getPage() has automatically mark page dirty
-		dirtypages.put(oldInPage.getId(), oldInPage);
-		dirtypages.put(newInPage.getId(), newInPage);
 
 		if (field.compare(Op.GREATER_THAN_OR_EQ, middleKey)) {
 			return newInPage;
