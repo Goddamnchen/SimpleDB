@@ -9,7 +9,7 @@ public class Predicate implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private Op op;
-    private int fnum;
+    private int fNum;
     private Field operand;
 
     /** Constants used for return codes in Field.compare */
@@ -59,7 +59,7 @@ public class Predicate implements Serializable {
      */
     public Predicate(int field, Op op, Field operand) {
         // some code goes here
-        this.fnum = field;
+        this.fNum = field;
         this.op = op;
         this.operand = operand;
     }
@@ -67,18 +67,16 @@ public class Predicate implements Serializable {
     /**
      * @return the field number
      */
-    public int getField()
-    {
+    public int getField() {
         // some code goes here
-        int fieldNumber = this.fnum;
+        int fieldNumber = this.fNum;
         return fieldNumber;
     }
 
     /**
      * @return the operator
      */
-    public Op getOp()
-    {
+    public Op getOp() {
         // some code goes here
         Op operation = this.op;
         return operation;
@@ -87,11 +85,10 @@ public class Predicate implements Serializable {
     /**
      * @return the operand
      */
-    public Field getOperand()
-    {
+    public Field getOperand() {
         // some code goes here
-        Field fvalue = this.operand;
-        return fvalue;
+        Field fValue = this.operand;
+        return fValue;
     }
     
     /**
@@ -107,7 +104,7 @@ public class Predicate implements Serializable {
     public boolean filter(Tuple t) {
         // some code goes here
         if (t == null)  return false;
-        return t.getField(this.fnum).compare(this.op, this.operand);
+        return t.getField(this.fNum).compare(this.op, this.operand);
     }
 
     /**
@@ -116,6 +113,6 @@ public class Predicate implements Serializable {
      */
     public String toString() {
         // some code goes here
-        return "f = " + this.fnum + " op = " + this.op + " operand = " + this.operand;
+        return "f = " + this.fNum + " op = " + this.op + " operand = " + this.operand;
     }
 }
