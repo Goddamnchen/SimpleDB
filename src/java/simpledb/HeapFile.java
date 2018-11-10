@@ -1,5 +1,7 @@
 package simpledb;
 
+import com.sun.corba.se.impl.orb.DataCollectorBase;
+
 import javax.xml.crypto.Data;
 import java.io.*;
 import java.util.*;
@@ -119,16 +121,49 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        boolean isEmptyPage = false;
+        ArrayList<Page> modifiedPages = new ArrayList<>();
+        for (int i = 0; i < numPages(); i ++) {
+            HeapPageId pid = new HeapPageId(getId(), i);
+            HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+            if (page.getNumEmptySlots() > 0) {
+                isEmptyPage = true;
+                page.insertTuple(t);
+                page.markDirty(true, tid);
+                modifiedPages.add(page);
+                break;
+            }
+        }
+        if (!isEmptyPage) {
+            HeapPageId newPid = new HeapPageId(getId(), numPages());
+            HeapPage emptyPage = new HeapPage(newPid, HeapPage.createEmptyPageData());
+            emptyPage.insertTuple(t);
+            emptyPage.markDirty(true, tid);
+            // write new page to disk directly
+            writePage(emptyPage);       // need insert first and then writePage()
+            modifiedPages.add(emptyPage);
+        }
+        return modifiedPages;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
         // not necessary for lab1
+        ArrayList<Page> modifiedPages = new ArrayList<>();
+        RecordId rid = t.getRecordId();
+        HeapPageId pid = (HeapPageId) rid.getPageId();
+        if (pid.getTableId() == getId()) {
+            HeapPage page = (HeapPage)Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+            page.deleteTuple(t);
+            page.markDirty(true, tid);
+            modifiedPages.add(page);
+            return modifiedPages;
+        } else {
+            throw new DbException("Tuple to delete not in this HeapFile ");
+        }
     }
 
     // see DbFile.java for javadocs
@@ -136,6 +171,7 @@ public class HeapFile implements DbFile {
         // some code goes here
         return new HeapFileIterator(tid) ;
     }
+
     private class HeapFileIterator extends AbstractDbFileIterator {
         TransactionId tid;
         int tupleNum;
@@ -143,16 +179,14 @@ public class HeapFile implements DbFile {
         Tuple next;
         LinkedList<Tuple> tupleQueue;
 
-
         public HeapFileIterator(TransactionId tid) {
             super();
             this.tid = tid;
             this.tableId = getId();
             this.next = null;
             this.tupleQueue = new LinkedList<>();
-
-
         }
+
         /**
          * Opens the iterator
          * @throws DbException when there are problems opening/accessing the database.
@@ -173,8 +207,8 @@ public class HeapFile implements DbFile {
                     }
                 }
             }
-
         }
+
         /** @return true if there are more tuples available, false if no more tuples or iterator isn't open. */
         @Override
         public boolean hasNext() throws DbException, TransactionAbortedException {
@@ -202,6 +236,7 @@ public class HeapFile implements DbFile {
             next = null;
             return result;
         }
+
         /** Reads the next tuple from the underlying source.
          @return the next Tuple in the iterator, null if the iteration is finished. */
         @Override
@@ -218,8 +253,8 @@ public class HeapFile implements DbFile {
         public void rewind() throws DbException, TransactionAbortedException {
             close();
             open();
-
         }
+
         /** If subclasses override this, they should call super.close(). */
         @Override
         public void close() {
@@ -231,10 +266,6 @@ public class HeapFile implements DbFile {
             this.next = null;
             this.tupleQueue.clear();
         }
-
-
-
     }
-
 }
 
