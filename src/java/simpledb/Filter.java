@@ -10,7 +10,7 @@ public class Filter extends Operator {
     private static final long serialVersionUID = 1L;
     private Predicate pred;
     private DbIterator child;
-    private Tuple current;
+    private Tuple current;      // seems redundant, no need to maintain this state
 
     /**
      * Constructor accepts a predicate to apply and a child operator to read
@@ -71,6 +71,7 @@ public class Filter extends Operator {
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
         // some code goes here
+        // On-the-fly iterator, streaming, small and constant work per call
         while (child.hasNext()) {
             current = child.next();
             if (pred.filter(current)) return current;
