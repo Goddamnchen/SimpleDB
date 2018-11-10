@@ -12,14 +12,16 @@ public class HeapPage implements Page {
 
     private HeapPageId pid;
     private TupleDesc td;     //Tuple descriptor for this Dbfile
-    private byte header[];    //Bitmap    Record1 | Record2 | Record3| end pointer | numSlots||
+    private byte header[];    //Bitmap    #slotId, each bit of #slotId in bitmap corresponds to a status of tuple of #slotId
+                              // status = ?empty:used 0:1
+                              // R0 status | R1 status | R2 status | R3 status |
     private Tuple tuples[];   //Records in this page
     private int numSlots;     //Number of record slots
     private boolean isDirty;
     private TransactionId dirtyTid;
 
     byte[] oldData;
-    private final Byte oldDataLock=new Byte((byte)0);
+    private final Byte oldDataLock = new Byte((byte)0);
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -74,7 +76,10 @@ public class HeapPage implements Page {
      */
     private int getHeaderSize() {
         // some code goes here
-        //Bug fixed, turn 8 --> 8.0 will turn header's size from 42 to 43 TODO: Why?
+        // Bug fixed, turn 8 --> 8.0 will turn header's size from 42 to 43 TODO: Why?
+        // 8 tuples occupy 8 bits of bitmap, which is 1 byte
+        // e.g. 33 tuples will occupy 5 bytes, with only having 1 effective bit in the last byte
+        // 1 byte size = 1 array size
         int headerSize = (int) Math.ceil(getNumTuples() / 8.0);
         return headerSize;
                  
@@ -111,8 +116,8 @@ public class HeapPage implements Page {
     public HeapPageId getId() {
     // some code goes here
     //throw new UnsupportedOperationException("implement this");
-        HeapPageId hpID = this.pid;
-        return hpID;
+        HeapPageId pageId = this.pid;
+        return pageId;
     }
 
     /**
@@ -245,8 +250,13 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        RecordId rid = t.getRecordId();
+        if (!rid.getPageId().equals(this.pid)) throw new DbException("Tuple does not belong to page");
+        int slotId = rid.tupleno();
+        if (!isSlotUsed(slotId)) throw new DbException("Tuple slot is empty");
+        tuples[slotId] = null;
+        markSlotUsed(slotId, false);
     }
-
     /**
      * Adds the specified tuple to the page;  the tuple should be updated to reflect
      *  that it is now stored on this page.
@@ -257,6 +267,21 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        if (!td.equals(t.getTupleDesc())) throw new DbException("Tuple descriptor mismatch");
+        if (getNumEmptySlots() == 0) throw new DbException("Page is full");
+        int slotId = -1;
+        // where the empty slot is
+        for (int i = 0; i < numSlots; i ++) {
+            if (!isSlotUsed(i)) {
+                slotId = i;
+                break;
+            }
+        }
+        if (slotId == -1) throw new DbException("Cant find empty slot when having unused slot");
+        t.setRecordId(new RecordId(this.pid, slotId));
+        tuples[slotId] = t;
+        markSlotUsed(slotId, true);
+
     }
 
     /**
@@ -266,8 +291,11 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	    // not necessary for lab1
-        this.isDirty = dirty;
-        this.dirtyTid = tid;
+        if (dirty) {
+            this.dirtyTid = tid;
+        } else {
+            this.dirtyTid = null;
+        }
     }
 
     /**
@@ -291,24 +319,23 @@ public class HeapPage implements Page {
                 count++;
             }
         }
-
         return count;
     }
 
     /**
      * Returns true if associated slot on this page is filled.
-     * TODO: ???
+     * Bug fixed
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        int headerbit = i % 8;
-        int headerbyte = (i - headerbit) / 8;
+        int headerbit = i % 8;      // offset of the status bit of tuple i
+        int headerbyte = (i - headerbit) / 8;  //
         return (header[headerbyte] & (1 << headerbit)) != 0;
 
-//        // TODO: ScanSmall debug
-//        // TODO: ArrayIndexOutofBound when having random table with 3 columns 0 row
-//        // TODO: @parse i / 8.0, which should < header.length = 42
-//        // TODO: Bug situation 336/8 = 42 --> ArrayIndexOutOfBound
+//        // FIXME: ScanSmall debug
+//        // FIXME: ArrayIndexOutofBound when having random table with 3 columns 0 row
+//        // FIXME: @parse i / 8.0, which should < header.length = 42
+//        // FIXME: Bug situation 336/8 = 42 --> ArrayIndexOutOfBound
 //        //if (i / 8 > header.length) return false;
 //
 //        int bits = header[ (int) (i / 8.0) ];
@@ -322,6 +349,11 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        if (value) {
+            this.header[i / 8] |= (1 << (i % 8));
+        } else {
+            this.header[i / 8] &= ~(1 << (i % 8));
+        }
     }
 
     /**
