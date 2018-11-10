@@ -43,22 +43,19 @@ public class JoinPredicate implements Serializable {
         return t1.getField(field1).compare(op, t2.getField(field2));
     }
     
-    public int getField1()
-    {
+    public int getField1() {
         // some code goes here
         int field1 = this.field1;
         return field1;
     }
     
-    public int getField2()
-    {
+    public int getField2() {
         // some code goes here
         int field2 = this.field2;
         return field2;
     }
     
-    public Predicate.Op getOperator()
-    {
+    public Predicate.Op getOperator() {
         // some code goes here
         Predicate.Op operation = this.op;
         return operation;
