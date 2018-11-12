@@ -10,7 +10,7 @@ public class Join extends Operator {
     private static final long serialVersionUID = 1L;
     private JoinPredicate pred;
     private DbIterator inner, outter;
-    private Tuple current;      // keep tracking the outter  to join
+    private Tuple current;      // keep tracking the outter to join
 
     /**
      * Constructor. Accepts to children to join and the predicate to join them
@@ -112,21 +112,35 @@ public class Join extends Operator {
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
         // FIXME: Something wrong with null value of current
-        while (outter.hasNext()) {
-            current = outter.next();
+        while (current!= null || outter.hasNext()) {
+            // 1st case: current tuple != null, proceed normally
+            // 2nd case: current tuple = null and outter still has next tuple, skip null
             Tuple outterTuple;
-            outterTuple = current;
-            while (inner.hasNext())
-            {
+            if (current == null) {
+                current = outter.next();
+                continue;
+            } else {
+                outterTuple = current;
+            }
+            while (inner.hasNext()) {
                 Tuple innerTuple = inner.next();
                 if (pred.filter(outterTuple, innerTuple)) {
                     return mergeTuple(outterTuple, innerTuple);
                 }
             }
+            current = null;
             inner.rewind();
         }
         return null;
     }
+
+    /**
+     * Helper method used to join together the outter and inner tuple
+     * The outter and inner should already be examined by equality predicate
+     * @param left outter tuple
+     * @param right inner tuple
+     * @return the mergedTuple
+     */
     private Tuple mergeTuple(Tuple left, Tuple right){
         Tuple mergedTuple = new Tuple(this.getTupleDesc());
         Iterator<Field> leftIt = left.fields();
