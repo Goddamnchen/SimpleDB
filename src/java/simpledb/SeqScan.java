@@ -53,8 +53,7 @@ public class SeqScan implements DbIterator {
     /**
      * @return Return the alias of the table this operator scans.
      * */
-    public String getAlias()
-    {
+    public String getAlias() {
         // some code goes here
         String alias = tableAlias;
         if (alias == null) return "null";
@@ -116,7 +115,6 @@ public class SeqScan implements DbIterator {
             typeAr[index] = item.fieldType;
             index++;
         }
-
         TupleDesc newTD = new TupleDesc(typeAr, fieldAr);
         return newTD;
     }
