@@ -15,7 +15,7 @@ public class HashEquiJoin extends Operator {
 
     // init when open()
     transient Iterator<Tuple> listIt = null;
-    HashMap<Object, ArrayList<Tuple>> map = new HashMap<>();        // (key: outter tuple, value: matched inner tuple list)
+    HashMap<Field, ArrayList<Tuple>> map = new HashMap<>();        // (key: outter tuple, value: matched inner tuple list)
     public final static int MAP_SIZE = 20000;
 
     /**
@@ -115,14 +115,17 @@ public class HashEquiJoin extends Operator {
         while (inner.hasNext()) {
             innerTuple = inner.next();
 
-            // if match, merge tuples
-            ArrayList<Tuple> l = map.get(innerTuple.getField(pred.getField2()));
+            // if match, go through matched tuple list
+            // return each tuple in the list after merging with corresponding outter tuple
             // if not exist corresponding field, skip to next inner tuple
-            if (l == null) continue;
-
-            listIt = l.iterator();
-            return mergeTuple(listIt.next(), innerTuple);
-
+            Field innerField = innerTuple.getField(pred.getField2());
+            if (map.containsKey(innerField)) {
+                ArrayList<Tuple> tupleList = map.get(innerField);
+                listIt = tupleList.iterator();
+                return mergeTuple(listIt.next(), innerTuple);
+            } else {
+                continue;
+            }
         }
 
         // inner loop is done: go to next outter tuple
