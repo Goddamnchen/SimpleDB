@@ -68,6 +68,32 @@ public interface Aggregator extends Serializable {
     }
 
     /**
+     * Helper method which identify having no grouping
+     */
+    public static Boolean isNonGrouping(int gbFieldIndex) {
+        if (gbFieldIndex == Aggregator.NO_GROUPING) return true;
+        else return false;
+    }
+    /**
+     * Helper method which acquires tupleDesc to construct tuple of aggregating result
+     * Acquiring different tupleDesc for Grouping and Non_Grouping aggregation
+     * @return a tuple descriptor for the iterator of aggregator implementing this interface
+     */
+    public static TupleDesc getTupleDesc(int gbFieldIndex, Type gbType) {
+        // helper method used by constructor
+        Type[] fieldTypes;
+        String[] fieldNames;
+        if (isNonGrouping(gbFieldIndex)) {
+            fieldTypes = new Type[]{Type.INT_TYPE};
+            fieldNames = new String[]{"aggregateVal"};
+        } else {
+            fieldTypes = new Type[]{gbType, Type.INT_TYPE};
+            fieldNames = new String[]{"groupVal", "aggregateVal"};
+        }
+        return new TupleDesc(fieldTypes, fieldNames);
+    }
+
+    /**
      * Merge a new tuple into the aggregate for a distinct group value;
      * creates a new group aggregate result if the group value has not yet
      * been encountered.
