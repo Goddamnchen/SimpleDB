@@ -13,3 +13,4 @@ simpledb_javadoc
 *.class
 overview
 bin/
+log
