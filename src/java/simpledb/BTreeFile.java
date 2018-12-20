@@ -2,9 +2,6 @@ package simpledb;
 
 import java.io.*;
 import java.util.*;
-import java.nio.channels.FileChannel;
-
-import edu.princeton.cs.algs4.BTree;
 import simpledb.Predicate.Op;
 
 /**
